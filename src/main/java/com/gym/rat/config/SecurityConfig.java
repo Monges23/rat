@@ -5,11 +5,17 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Configuration
 public class SecurityConfig {
+
+    @Autowired
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
     public BCryptPasswordEncoder passwordEncoder() {
@@ -24,16 +30,21 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable()) // desactiva CSRF (innecesario para APIs REST)
+            .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
-                // permite acceso a HTML, CSS, JS y login/registro
-                .requestMatchers("/", "/index.html", "/css/**", "/js/**", "/auth/**", "/error").permitAll()
+                .requestMatchers(
+                        "/", "/index.html", "/css/**", "/js/**",
+                        "/auth/**", "/error"
+                ).permitAll()
+                .requestMatchers("/usuarios/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
-            .formLogin(form -> form.disable())   // desactiva el formulario HTML de Spring
-            .httpBasic(basic -> basic.disable()); // desactiva login básico por cabecera
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .formLogin(form -> form.disable())
+            .httpBasic(basic -> basic.disable());
+
+        http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 }
-
